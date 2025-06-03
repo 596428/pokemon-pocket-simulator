@@ -1,0 +1,20 @@
+# Pokemon Pocket Simulator - 테스트용 덱 리스트
+# 형식: 카드명 | 카드타입 | 장수
+
+Charmander | Basic Pokemon | 2
+Charizard | Stage2 Pokemon | 2
+Type:Null | Basic Pokemon | 2
+Silvally | Stage1 Pokemon | 2
+Poke Ball | Item | 2
+Rare Candy | Item | 2
+Professor's Research | Supporter | 2
+Leaf | Supporter | 1
+Cyrus | Supporter | 1
+Mars | Supporter | 1
+Lillie | Supporter | 1
+Galdion | Supporter | 2
+
+# 드로우 카드 발동 순서
+# 순서: Poke Ball, Professor's Research, Galdion
+
+# 총 장수: 20장

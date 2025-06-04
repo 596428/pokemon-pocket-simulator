@@ -1,0 +1,30 @@
+# 덱에 없는 카드 테스트를 위한 임시 TestCase
+{
+    "name": "테스트: 덱에 없는 선호 Basic (Pikachu)",
+    "request": {
+        "type": "preferred_opening",
+        "preferred_basics": ["Type:Null", "Pikachu"]
+    }
+}
+
+{
+    "name": "테스트: 덱에 없는 비선호 Basic만 (Squirtle, Pichu)",
+    "request": {
+        "type": "non_preferred_opening", 
+        "non_preferred_basics": ["Squirtle", "Pichu"]
+    }
+}
+
+{
+    "name": "테스트: 덱에 없는 멀티카드 (Charizard)",
+    "request": {
+        "type": "multi_card",
+        "target_cards": ["Type:Null", "Charizard"],
+        "turn": 2
+    }
+}
+
+{
+    "draw_order": ["Poke Ball", "Professor's Research", "Galdion"],
+    "simulation_count": 1000
+}

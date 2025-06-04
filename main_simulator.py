@@ -313,30 +313,43 @@ class PokemonPocketSimulator:
             return False
     
     def validate_calculation_request(self, calculation_request: Dict[str, Any]) -> bool:
-        """계산 요청 검증"""
+        """계산 요청 검증 (v2.0)"""
         try:
             calc_type = calculation_request.get("type")
-            if calc_type not in [1, 2, 3, 4, 5]:
+            supported_types = ["preferred_opening", "non_preferred_opening", "multi_card"]
+            
+            if calc_type not in supported_types:
                 print(f"❌ 오류: 지원하지 않는 계산 타입입니다: {calc_type}")
+                print(f"지원되는 타입: {', '.join(supported_types)}")
                 return False
             
-            target_cards = calculation_request.get("target_cards", [])
-            if not target_cards:
-                print("❌ 오류: target_cards가 비어있습니다.")
-                return False
+            # 타입별 필수 필드 검증
+            if calc_type == "preferred_opening":
+                preferred_basics = calculation_request.get("preferred_basics", [])
+                if not preferred_basics:
+                    print("❌ 오류: preferred_basics가 비어있습니다.")
+                    return False
+                
+            elif calc_type == "non_preferred_opening":
+                non_preferred_basics = calculation_request.get("non_preferred_basics", [])
+                if not non_preferred_basics:
+                    print("❌ 오류: non_preferred_basics가 비어있습니다.")
+                    return False
+                    
+            elif calc_type == "multi_card":
+                target_cards = calculation_request.get("target_cards", [])
+                if not target_cards:
+                    print("❌ 오류: target_cards가 비어있습니다.")
+                    return False
+                if len(target_cards) > 3:
+                    print("❌ 오류: target_cards는 최대 3개까지만 지원합니다.")
+                    return False
+                    
+                turn = calculation_request.get("turn", 2)
+                if not isinstance(turn, int) or turn < 1:
+                    print("❌ 오류: turn은 1 이상의 정수여야 합니다.")
+                    return False
             
-            # 타입별 필요한 카드 수 검증
-            if calc_type in [1, 2, 3] and len(target_cards) < 1:
-                print(f"❌ 오류: 타입 {calc_type}은 최소 1개의 카드가 필요합니다.")
-                return False
-            elif calc_type == 4 and len(target_cards) < 2:
-                print(f"❌ 오류: 타입 4는 Basic Pokemon과 Stage1 Pokemon 2개의 카드가 필요합니다.")
-                return False
-            elif calc_type == 5 and len(target_cards) < 3:
-                print(f"❌ 오류: 타입 5는 Basic Pokemon, Item, Stage2 Pokemon 3개의 카드가 필요합니다.")
-                return False
-            
-            print("✅ 계산 요청 검증 통과")
             return True
             
         except Exception as e:
@@ -377,10 +390,7 @@ class PokemonPocketSimulator:
         return True
     
     def run_calculation(self, calculation_request: Dict[str, Any], simulation_count: int = 10000):
-        """확률 계산 실행"""
-        print("\n" + "="*60)
-        print("확률 계산 실행 중...")
-        print("="*60)
+        """확률 계산 실행 (v2.0)"""
         
         # 계산 요청 검증
         if not self.validate_calculation_request(calculation_request):
@@ -391,64 +401,11 @@ class PokemonPocketSimulator:
             print("❌ 오류: 시뮬레이션이 설정되지 않았습니다. setup_simulation()을 먼저 호출하세요.")
             return None
         
-        calc_type = calculation_request["type"]
-        target_cards = calculation_request["target_cards"]
+        print("✅ 계산 요청 검증 통과")
         
-        # 계산 타입별 분기
-        if calc_type == 1:
-            target_card = target_cards[0]
-            result = self.prob_calculator.calculate_type1_probability(
-                target_card, 
-                num_simulations=simulation_count
-            )
-            
-        elif calc_type == 2:
-            target_card = target_cards[0]
-            result = self.prob_calculator.calculate_type2_probability(
-                target_card,
-                num_simulations=simulation_count
-            )
-            
-        elif calc_type == 3:
-            target_card = target_cards[0]
-            turn = calculation_request.get("turn", 2)  # 기본값 2턴
-            result = self.prob_calculator.calculate_type3_probability(
-                target_card,
-                max_turn=turn,
-                num_simulations=simulation_count
-            )
-            
-        elif calc_type == 4:
-            if len(target_cards) < 2:
-                print("❌ 오류: 타입 4는 Basic Pokemon과 Stage1 Pokemon 2개의 카드가 필요합니다.")
-                return None
-            basic_pokemon = target_cards[0]
-            stage1_pokemon = target_cards[1]
-            result = self.prob_calculator.calculate_type4_probability(
-                basic_pokemon,
-                stage1_pokemon,
-                num_simulations=simulation_count
-            )
-            
-        elif calc_type == 5:
-            if len(target_cards) < 3:
-                print("❌ 오류: 타입 5는 Basic Pokemon, Item, Stage2 Pokemon 3개의 카드가 필요합니다.")
-                return None
-            basic_pokemon = target_cards[0]
-            item = target_cards[1]
-            stage2_pokemon = target_cards[2]
-            result = self.prob_calculator.calculate_type5_probability(
-                basic_pokemon,
-                item,
-                stage2_pokemon,
-                num_simulations=simulation_count
-            )
-        else:
-            print(f"❌ 오류: 타입 {calc_type}은 지원되지 않습니다.")
-            return None
+        # ProbabilityCalculator의 run_calculation 메서드에 위임
+        result = self.prob_calculator.run_calculation(calculation_request, simulation_count)
         
-        # 결과 출력
-        self.prob_calculator.print_result(result)
         return result
     
     def print_deck_info(self):

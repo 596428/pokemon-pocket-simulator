@@ -96,6 +96,18 @@ Professor's Research | Supporter | 2
 - 요약 통계 제공
 - 가장 실용적인 실행 방법
 
+#### `run_simulator.bat` - **Windows 배치파일** 🔧
+**용도**: 이모지 오류 없이 안전한 실행
+- UTF-8 환경변수 자동 설정
+- 더블클릭으로 간편 실행
+- Windows 사용자 추천
+
+#### `run_simulator.ps1` - **PowerShell 스크립트** 🔧
+**용도**: PowerShell 환경에서 자동 실행
+- 환경변수 및 경로 자동 설정
+- 개발자 친화적
+- `.\run_simulator.ps1`로 실행
+
 ---
 
 ## 🚀 사용 방법
@@ -108,6 +120,31 @@ python run_all_tests.py
 # 대화형 실행
 python main_simulator.py
 ```
+
+### **Windows 환경에서 이모지 오류 발생 시**
+
+#### **방법 1: 환경변수 설정 (확실함)**
+```bash
+# PowerShell에서
+$env:PYTHONIOENCODING="utf-8"; python main_simulator.py
+
+# 또는 전체 테스트
+$env:PYTHONIOENCODING="utf-8"; python run_all_tests.py
+```
+
+#### **방법 2: 배치파일 사용 (편리함)**
+```bash
+# 더블클릭으로 실행
+run_simulator.bat
+
+# 또는 PowerShell 스크립트
+.\run_simulator.ps1
+```
+
+#### **방법 3: 다른 터미널 사용**
+- **Windows Terminal** (Microsoft Store에서 설치) - 추천
+- **VS Code 통합 터미널**
+- **Git Bash** (UTF-8 기본 지원)
 
 ### **설정 변경**
 1. **덱 구성 변경**: `DeckList.txt` 편집
@@ -226,6 +263,45 @@ TestCase.txt에서 설정: `["Poke Ball", "Professor's Research", "Galdion"]`
 
 ## 🐛 문제 해결
 
+### **이모지 인코딩 오류 (Windows)**
+**증상**: `'cp949' codec can't encode character` 오류
+```
+UnicodeEncodeError: 'cp949' codec can't encode character '📁' in position 0
+```
+
+**원인**: Windows 콘솔의 기본 인코딩이 CP949(한국어)로 설정되어 있어 UTF-8 이모지를 출력할 수 없음
+
+**해결방법**:
+
+#### **즉시 해결** ⭐ **추천**
+```bash
+# PowerShell에서 환경변수 설정 후 실행
+$env:PYTHONIOENCODING="utf-8"; python main_simulator.py
+```
+
+#### **배치파일 사용**
+```bash
+# run_simulator.bat 더블클릭
+# 또는 PowerShell에서
+.\run_simulator.ps1
+```
+
+#### **영구 해결 (터미널 변경)**
+1. **Windows Terminal 설치** (Microsoft Store)
+   - UTF-8 기본 지원, 가장 깔끔한 해결책
+   
+2. **VS Code 터미널 사용**
+   - 개발 환경에서 자연스럽게 UTF-8 지원
+
+#### **시스템 설정 변경 (고급)**
+```bash
+# 콘솔 코드페이지를 UTF-8로 변경
+chcp 65001
+
+# 시스템 환경변수 영구 설정
+setx PYTHONIOENCODING utf-8
+```
+
 ### **시뮬레이션 오류**
 1. 덱이 정확히 20장인지 확인
 2. Basic Pokemon이 포함되어 있는지 확인
@@ -300,6 +376,17 @@ TestCase.txt에서 설정: `["Poke Ball", "Professor's Research", "Galdion"]`
 4. **동적 설정 활용**: TestCase.txt에서 턴 수와 카드 조합 자유 변경
 5. **Opening 분석**: 선호/비선호 Basic을 구분해서 덱 성능 평가
 6. **대용량 시뮬레이션**: simulation_count를 50,000 이상으로 설정
+
+### **Windows 사용자 팁** 🪟
+- **이모지 오류 시**: `$env:PYTHONIOENCODING="utf-8"; python main_simulator.py`
+- **더 편하게**: `run_simulator.bat` 더블클릭으로 실행
+- **개발환경**: VS Code나 Windows Terminal 사용 권장
+- **영구해결**: Windows Terminal을 기본 터미널로 설정
+
+### **성능 최적화 팁** ⚡
+- **빠른 테스트**: simulation_count = 1,000~2,000
+- **정확한 결과**: simulation_count = 10,000~50,000
+- **정밀분석**: simulation_count = 100,000+ (시간 오래 걸림)
 
 ---
 

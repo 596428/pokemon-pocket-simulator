@@ -472,7 +472,19 @@ def main():
     
     print("\n=== 단일 테스트 실행 ===")
     print(f"- 계산 타입: {calculation_request['type']}")
-    print(f"- 대상 카드: {calculation_request['target_cards']}")
+    
+    # 계산 타입에 따라 적절한 필드 출력
+    calc_type = calculation_request['type']
+    if calc_type == "preferred_opening":
+        print(f"- 선호 Basic Pokemon: {calculation_request.get('preferred_basics', [])}")
+    elif calc_type == "non_preferred_opening":
+        print(f"- 비선호 Basic Pokemon: {calculation_request.get('non_preferred_basics', [])}")
+    elif calc_type == "multi_card":
+        print(f"- 대상 카드: {calculation_request.get('target_cards', [])}")
+        print(f"- 턴 수: {calculation_request.get('turn', 2)}")
+    else:
+        print(f"- 요청 내용: {calculation_request}")
+    
     print(f"- 시뮬레이션 횟수: {simulation_count:,}회")
     
     # 1. 시뮬레이션 설정

@@ -1,20 +1,24 @@
-# Pokemon Pocket Simulator - 테스트용 덱 리스트
-# 형식: 카드명 | 카드타입 | 장수
+# Pokemon Communication 실험용 덱리스트 (실험군)
+# 총 20장 구성 - Pokemon Communication의 효과 측정용
 
+# === Target Cards (희소하게 배치) ===
 Blacephalon | Basic Pokemon | 1
+Silvally | Stage1 Pokemon | 1
+BalsaMine | Item | 1
+
+# === 교환 대상 Pokemon (다양하게 구성) ===
 Type:Null | Basic Pokemon | 2
-Charmander | Basic Pokemon | 1
-Silvally | Stage1 Pokemon | 2
+Charmander | Basic Pokemon | 2
+Pikachu | Basic Pokemon | 1
+Squirtle | Basic Pokemon | 1
+
+# === 드로우 카드들 ===
+Pokemon Communication | Item | 2
 Poke Ball | Item | 2
-Giant Cape | Pokemon Tool | 2
 Professor's Research | Supporter | 2
-Leaf | Supporter | 2
-Cyrus | Supporter | 1
-Mars | Supporter | 1
-BalsaMine | Supporter | 2
-Galdion | Supporter | 2
 
-# 드로우 카드 발동 순서
-# 순서: Poke Ball, Professor's Research, Galdion
-
-# 총 장수: 20장
+# === 기타 카드들 (20장 맞추기용) ===
+Giant Cape | Pokemon Tool | 2
+Energy Search | Item | 1
+Potion | Item | 1
+Switch | Item | 1

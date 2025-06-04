@@ -213,7 +213,7 @@ class SimulationEngine:
         self.draw_order = draw_order or []
         self.available_draw_cards = [card_name for card_name in deck_input.keys() if card_name in DRAW_CARDS]
     
-    def simulate_single_game(self, max_turn: int = 2, verbose: bool = False) -> Dict[str, Any]:
+    def simulate_single_game(self, max_turn: int = 2, verbose: bool = False, target_cards: List[str] = None) -> Dict[str, Any]:
         game_state = GameState(self.deck_input, self.draw_order)
         result = {
             'success': False,
@@ -245,7 +245,7 @@ class SimulationEngine:
             
             # 1턴부터 카드 효과 사용
             if turn > 0:
-                cards_used_this_turn = self._use_draw_cards(game_state, verbose)
+                cards_used_this_turn = self._use_draw_cards(game_state, verbose, target_cards, max_turn)
                 result['turn_results'][turn]['cards_used_this_turn'] = cards_used_this_turn
                 result['cards_used'].extend(cards_used_this_turn)
             
@@ -255,28 +255,95 @@ class SimulationEngine:
         result['final_hand'] = [card.name for card in game_state.hand]
         return result
     
-    def _use_draw_cards(self, game_state: GameState, verbose: bool = False) -> List[str]:
-        cards_used = []
+    def _use_draw_cards(self, game_state: GameState, verbose: bool = False, target_cards: List[str] = None, max_turn: int = None) -> List[str]:
+        """
+        한 턴에서 드로우 카드들을 사용하는 함수 (올바른 게임 규칙 + Pokemon Communication 연쇄 로직)
         
-        for card_name in self.draw_order:
-            cards_in_hand = [card for card in game_state.hand if card.name == card_name]
+        게임 규칙:
+        - Supporter: 1턴에 1장만 사용 가능
+        - Item: 1턴에 여러장 사용 가능
+        - Supporter 사용해도 Item은 계속 사용 가능
+        """
+        cards_used = []
+        supporter_used = False  # Supporter 사용 여부 추적
+        max_iterations = 10  # 무한루프 방지
+        
+        for iteration in range(max_iterations):
+            cards_used_this_iteration = 0
             
-            for card in cards_in_hand:
-                if verbose:
-                    print(f"  {card_name} 사용 시도...")
+            if verbose and iteration > 0:
+                print(f"  === 연쇄 사용 루프 {iteration + 1}회차 ===")
+            
+            # 1단계: 일반 드로우카드들 사용 (Pokemon Communication 제외)
+            regular_draw_cards = [card_name for card_name in self.draw_order if card_name != "Pokemon Communication"]
+            
+            for card_name in regular_draw_cards:
+                cards_in_hand = [card for card in game_state.hand if card.name == card_name]
                 
-                effect_result = CardEffects.use_card_effect(card_name, game_state)
-                
-                if verbose:
-                    print(f"    결과: {effect_result['description']}")
-                
-                game_state.hand.remove(card)
-                cards_used.append(card_name)
-                
-                if card.card_type == "Supporter":
+                for card in cards_in_hand:
+                    # Supporter 제한 체크
+                    if card.card_type == "Supporter" and supporter_used:
+                        if verbose:
+                            print(f"  {card_name} (Supporter) 건너뜀 - 이미 Supporter 사용함")
+                        continue
+                    
                     if verbose:
-                        print(f"    Supporter 사용으로 이번 턴 Supporter 사용 종료")
-                    return cards_used
+                        print(f"  {card_name} 사용 시도...")
+                    
+                    effect_result = CardEffects.use_card_effect(card_name, game_state)
+                    
+                    if verbose:
+                        print(f"    결과: {effect_result['description']}")
+                    
+                    game_state.hand.remove(card)
+                    cards_used.append(card_name)
+                    cards_used_this_iteration += 1
+                    
+                    # Supporter 사용 체크
+                    if card.card_type == "Supporter":
+                        supporter_used = True
+                        if verbose:
+                            print(f"    Supporter 사용됨 - 이번 턴 추가 Supporter 사용 불가")
+            
+            # 2단계: Pokemon Communication 평가 (마지막 턴에서만)
+            if target_cards and max_turn is not None and game_state.turn == max_turn:
+                pokemon_comm_cards = [card for card in game_state.hand if card.name == "Pokemon Communication"]
+                
+                for pokemon_comm_card in pokemon_comm_cards:
+                    # Pokemon Communication 사용 여부 판단
+                    decision = CardEffects.should_use_pokemon_communication(game_state, target_cards, max_turn)
+                    
+                    if decision["should_use"]:
+                        if verbose:
+                            print(f"  Pokemon Communication 사용 결정: {decision['reason']}")
+                            print(f"  교환 대상 Pokemon: {decision.get('chosen_pokemon', 'auto')}")
+                        
+                        # Pokemon Communication 사용
+                        chosen_pokemon = decision.get("chosen_pokemon")
+                        pc_result = CardEffects.pokemon_communication(game_state, chosen_pokemon)
+                        
+                        if pc_result["success"]:
+                            if verbose:
+                                print(f"    결과: {pc_result['description']}")
+                            
+                            game_state.hand.remove(pokemon_comm_card)
+                            cards_used.append("Pokemon Communication")
+                            cards_used_this_iteration += 1
+                        else:
+                            if verbose:
+                                print(f"    실패: {pc_result['description']}")
+                    else:
+                        if verbose:
+                            print(f"  Pokemon Communication 사용 안함: {decision['reason']}")
+            
+            # 3단계: 더 이상 사용할 카드가 없으면 루프 종료
+            if cards_used_this_iteration == 0:
+                if verbose and iteration > 0:
+                    print(f"  연쇄 사용 완료 (총 {iteration + 1}회 반복)")
+                break
+        
+        if verbose and cards_used_this_iteration > 0:
+            print(f"  ⚠️ 최대 반복 횟수({max_iterations})에 도달하여 강제 종료")
         
         return cards_used
 
@@ -329,7 +396,7 @@ class PokemonPocketSimulator:
                 if not preferred_basics:
                     print("❌ 오류: preferred_basics가 비어있습니다.")
                     return False
-                
+                    
             elif calc_type == "non_preferred_opening":
                 non_preferred_basics = calculation_request.get("non_preferred_basics", [])
                 if not non_preferred_basics:
@@ -376,7 +443,7 @@ class PokemonPocketSimulator:
             # 입력된 순서가 유효한지 확인
             invalid_cards = [card for card in draw_order if card not in available_draw_cards]
             if invalid_cards:
-                print(f"❌ 오류: 다음 카드들이 덱에 없거나 드로우 카드가 아닙니다: {invalid_cards}")
+                print(f"❌ 오류: 다음 카드들은 덱에 없거나 드로우 카드가 아닙니다: {invalid_cards}")
                 return False
             print(f"드로우 카드 발동 순서 (사용자 설정): {draw_order}")
         
@@ -398,7 +465,7 @@ class PokemonPocketSimulator:
         
         # 시뮬레이션이 설정되어 있는지 확인
         if self.sim_engine is None or self.prob_calculator is None:
-            print("❌ 오류: 시뮬레이션이 설정되지 않았습니다. setup_simulation()을 먼저 호출하세요.")
+            print("❌ 오류: 시뮬레이션이 설정되어 있지 않습니다. setup_simulation()을 먼저 호출하세요.")
             return None
         
         print("✅ 계산 요청 검증 통과")
@@ -411,7 +478,7 @@ class PokemonPocketSimulator:
     def print_deck_info(self):
         """현재 덱 정보 출력"""
         if self.current_deck is None:
-            print("❌ 덱이 설정되지 않았습니다.")
+            print("❌ 덱이 설정되어 있지 않습니다.")
             return
         
         print("\n" + "="*60)
@@ -458,7 +525,7 @@ def main():
         print("❌ 테스트 케이스 파일 읽기 실패")
         return
     
-    # 파일에서 읽은 드로우 순서가 있으면 그것을 우선 사용
+    # 파일에 있는 드로우 순서가 있으면 그것을 우선 사용
     if file_draw_order:
         draw_order = file_draw_order
     
@@ -473,7 +540,7 @@ def main():
     print("\n=== 단일 테스트 실행 ===")
     print(f"- 계산 타입: {calculation_request['type']}")
     
-    # 계산 타입에 따라 적절한 필드 출력
+    # 계산 타입에 따른 추가 정보 출력
     calc_type = calculation_request['type']
     if calc_type == "preferred_opening":
         print(f"- 선호 Basic Pokemon: {calculation_request.get('preferred_basics', [])}")
@@ -504,12 +571,12 @@ def main():
         print("시뮬레이션 완료!")
         print("="*60)
         print("✅ 테스트가 성공적으로 완료되었습니다.")
-        print("📁 파일에서 설정을 성공적으로 읽어와 실행했습니다.")
+        print("📁 파일에서 성공적으로 읽어와 실행하였습니다.")
     else:
-        print("\n❌ 시뮬레이션 실행 중 오류가 발생했습니다.")
+        print("\n❌ 시뮬레이션 실행 중 오류가 발생하였습니다.")
 
 def run_test_suite():
-    """모든 타입의 확률 계산 테스트 실행 (파일에서 설정 읽기)"""
+    """모든 테스트의 확률 계산 테스트 실행 (파일에서 설정 읽기)"""
     print("Pokemon Pocket Simulator - 전체 테스트 스위트")
     print("="*60)
     
@@ -530,7 +597,7 @@ def run_test_suite():
         print("❌ 테스트 케이스 파일 읽기 실패")
         return
     
-    # 파일에서 읽은 드로우 순서가 있으면 그것을 우선 사용
+    # 파일에 있는 드로우 순서가 있으면 그것을 우선 사용
     if file_draw_order:
         draw_order = file_draw_order
     
@@ -574,7 +641,7 @@ def run_test_suite():
     print("📁 모든 설정이 파일에서 성공적으로 로드되었습니다.")
 
 if __name__ == "__main__":
-    # 사용자 선택에 따라 단일 테스트 또는 전체 테스트 실행
+    # 사용에 따라 단일 테스트 또는 전체 테스트 실행
     print("실행 모드를 선택하세요:")
     print("1. 단일 테스트 (타입 1)")
     print("2. 전체 테스트 스위트 (타입 1~5)")
@@ -588,6 +655,6 @@ if __name__ == "__main__":
         else:
             main()
     except KeyboardInterrupt:
-        print("\n\n프로그램이 중단되었습니다.")
+        print("\n\n프로그램이 종료되었습니다.")
     except Exception as e:
-        print(f"\n오류가 발생했습니다: {e}")
+        print(f"\n오류가 발생하였습니다: {e}")

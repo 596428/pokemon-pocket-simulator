@@ -225,7 +225,7 @@ class ProbabilityCalculator:
                 progress = ((i + 1) / num_simulations) * 100
                 print(f"진행률: {progress:.1f}% ({i+1:,}/{num_simulations:,})")
             
-            game_result = self.sim_engine.simulate_single_game(max_turn=max_turn, verbose=False)
+            game_result = self.sim_engine.simulate_single_game(max_turn=max_turn, verbose=False, target_cards=target_cards)
             
             if game_result['success']:
                 total_valid_games += 1

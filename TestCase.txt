@@ -51,6 +51,6 @@
 
 # 기본 설정
 {
-    "draw_order": ["Poke Ball", "Professor's Research", "Galdion"],
+    "draw_order": ["Poke Ball", "Professor's Research", "Pokemon Communication"],
     "simulation_count": 10000
 }

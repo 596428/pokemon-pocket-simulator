@@ -290,6 +290,14 @@ class SimulationEngine:
                     if verbose:
                         print(f"  {card_name} 사용 시도...")
                     
+                    # Iono의 경우 사용 여부를 먼저 판단
+                    if card_name == "Iono" and target_cards:
+                        decision = CardEffects.should_use_iono(game_state, target_cards)
+                        if not decision["should_use"]:
+                            if verbose:
+                                print(f"  {card_name} 사용 안 함: {decision['reason']}")
+                            continue
+
                     effect_result = CardEffects.use_card_effect(card_name, game_state)
                     
                     if verbose:

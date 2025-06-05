@@ -531,3 +531,156 @@ class ProbabilityCalculator:
             self.print_calculation_result(result)
         
         return result
+
+    # ===== 복합 확률 계산 함수들 (v2.1 추가) =====
+    
+    def calculate_preferred_and_multi_probability(self, preferred_basics: List[str], target_cards: List[str], max_turn: int, num_simulations: int = 10000) -> Dict[str, Any]:
+        """
+        선호하는 Basic Pokemon으로 시작하면서 N턴까지 목표 카드들을 모두 확보하는 확률
+        
+        Args:
+            preferred_basics: 선호하는 Basic Pokemon 목록
+            target_cards: 목표 카드 목록
+            max_turn: 최대 턴 수
+            num_simulations: 시뮬레이션 횟수
+            
+        Returns:
+            Dict: 복합 확률 계산 결과
+        """
+        print(f"=== 선호 시작 AND 멀티카드 확률 계산 시작 ===")
+        print(f"선호 Basic: {', '.join(preferred_basics)}")
+        print(f"목표 카드: {', '.join(target_cards)}")
+        print(f"최대 턴: {max_turn}턴")
+        print(f"시뮬레이션 횟수: {num_simulations:,}회")
+        print(f"조건: 선호 Basic으로 시작 + {max_turn}턴까지 모든 목표 카드 확보")
+        
+        success_count = 0
+        total_valid_games = 0
+        checkpoint = max(1, num_simulations // 10)
+        
+        for i in range(num_simulations):
+            if (i + 1) % checkpoint == 0 or i == 0:
+                progress = ((i + 1) / num_simulations) * 100
+                print(f"진행률: {progress:.1f}% ({i+1:,}/{num_simulations:,})")
+            
+            game_result = self.sim_engine.simulate_single_game(max_turn, target_cards=target_cards)
+            
+            if game_result['success']:
+                total_valid_games += 1
+                
+                # 조건 1: 선호하는 Basic Pokemon으로 시작했는지 체크
+                turn_0_hand = game_result.get('turn_results', {}).get(0, {}).get('hand_before_effects', [])
+                basic_pokemons_in_opening = [card for card in turn_0_hand if self._is_basic_pokemon(card)]
+                preferred_opening = any(basic in preferred_basics for basic in basic_pokemons_in_opening)
+                
+                # 조건 2: 목표 카드들을 모두 확보했는지 체크
+                final_hand = game_result['final_hand']
+                all_cards_found = all(card in final_hand for card in target_cards)
+                
+                # 복합 조건: 두 조건을 모두 만족
+                if preferred_opening and all_cards_found:
+                    success_count += 1
+        
+        if total_valid_games == 0:
+            probability = 0.0
+        else:
+            probability = (success_count / total_valid_games) * 100
+        
+        result = {
+            'calculation_type': 'preferred_and_multi',
+            'description': f'선호 Basic({", ".join(preferred_basics)})으로 시작하면서 {max_turn}턴까지 모든 목표 카드 확보 확률',
+            'preferred_basics': preferred_basics,
+            'target_cards': target_cards,
+            'max_turn': max_turn,
+            'card_count': len(target_cards),
+            'probability_percent': round(probability, 2),
+            'success_count': success_count,
+            'total_valid_games': total_valid_games,
+            'simulation_count': num_simulations
+        }
+        
+        print(f"\n=== 선호 시작 AND 멀티카드 확률 계산 완료 ===")
+        print(f"성공: {success_count:,}회 / 유효 게임: {total_valid_games:,}회")
+        print(f"확률: {probability:.2f}%")
+        
+        return result
+    
+    def calculate_non_preferred_and_multi_probability(self, non_preferred_basics, target_cards, max_turn, num_simulations=10000):
+        print("=== 비선호 시작 AND 멀티카드 확률 계산 시작 ===")
+        success_count = 0
+        total_valid_games = 0
+        
+        for i in range(num_simulations):
+            if (i + 1) % 1000 == 0:
+                progress = ((i + 1) / num_simulations) * 100
+                print(f"진행률: {progress:.1f}%")
+            
+            game_result = self.sim_engine.simulate_single_game(max_turn, target_cards=target_cards)
+            
+            if game_result['success']:
+                total_valid_games += 1
+                
+                # 비선호 시작 체크
+                turn_0_hand = game_result.get('turn_results', {}).get(0, {}).get('hand_before_effects', [])
+                basic_pokemons = [card for card in turn_0_hand if self._is_basic_pokemon(card)]
+                non_preferred_opening = (len(basic_pokemons) > 0 and 
+                                       all(basic in non_preferred_basics for basic in basic_pokemons))
+                
+                # 목표 카드 확보 체크
+                final_hand = game_result['final_hand']
+                all_cards_found = all(card in final_hand for card in target_cards)
+                
+                if non_preferred_opening and all_cards_found:
+                    success_count += 1
+        
+        probability = (success_count / total_valid_games) * 100 if total_valid_games > 0 else 0.0
+        
+        return {
+            'calculation_type': 'non_preferred_and_multi',
+            'probability_percent': round(probability, 2),
+            'success_count': success_count,
+            'total_valid_games': total_valid_games,
+            'simulation_count': num_simulations
+        }
+    
+    def calculate_multi_or_multi_probability(self, target_groups, max_turn, num_simulations=10000):
+        print("=== 멀티 OR 멀티 확률 계산 시작 ===")
+        
+        all_target_cards = []
+        for group in target_groups:
+            all_target_cards.extend(group['target_cards'])
+        all_target_cards = list(set(all_target_cards))
+        
+        success_count = 0
+        total_valid_games = 0
+        
+        for i in range(num_simulations):
+            if (i + 1) % 1000 == 0:
+                progress = ((i + 1) / num_simulations) * 100
+                print(f"진행률: {progress:.1f}%")
+            
+            game_result = self.sim_engine.simulate_single_game(max_turn, target_cards=all_target_cards, target_groups=target_groups)
+            
+            if game_result['success']:
+                total_valid_games += 1
+                
+                final_hand = game_result['final_hand']
+                group_completed = False
+                
+                for group in target_groups:
+                    if all(card in final_hand for card in group['target_cards']):
+                        group_completed = True
+                        break
+                
+                if group_completed:
+                    success_count += 1
+        
+        probability = (success_count / total_valid_games) * 100 if total_valid_games > 0 else 0.0
+        
+        return {
+            'calculation_type': 'multi_or_multi',
+            'probability_percent': round(probability, 2),
+            'success_count': success_count,
+            'total_valid_games': total_valid_games,
+            'simulation_count': num_simulations
+        }

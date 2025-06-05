@@ -213,7 +213,7 @@ class SimulationEngine:
         self.draw_order = draw_order or []
         self.available_draw_cards = [card_name for card_name in deck_input.keys() if card_name in DRAW_CARDS]
     
-    def simulate_single_game(self, max_turn: int = 2, verbose: bool = False, target_cards: List[str] = None) -> Dict[str, Any]:
+    def simulate_single_game(self, max_turn: int = 2, verbose: bool = False, target_cards: List[str] = None, target_groups: List[Dict] = None) -> Dict[str, Any]:
         game_state = GameState(self.deck_input, self.draw_order)
         result = {
             'success': False,
@@ -245,7 +245,7 @@ class SimulationEngine:
             
             # 1턴부터 카드 효과 사용
             if turn > 0:
-                cards_used_this_turn = self._use_draw_cards(game_state, verbose, target_cards, max_turn)
+                cards_used_this_turn = self._use_draw_cards(game_state, verbose, target_cards, max_turn, target_groups)
                 result['turn_results'][turn]['cards_used_this_turn'] = cards_used_this_turn
                 result['cards_used'].extend(cards_used_this_turn)
             
@@ -255,7 +255,7 @@ class SimulationEngine:
         result['final_hand'] = [card.name for card in game_state.hand]
         return result
     
-    def _use_draw_cards(self, game_state: GameState, verbose: bool = False, target_cards: List[str] = None, max_turn: int = None) -> List[str]:
+    def _use_draw_cards(self, game_state: GameState, verbose: bool = False, target_cards: List[str] = None, max_turn: int = None, target_groups: List[Dict] = None) -> List[str]:
         """
         한 턴에서 드로우 카드들을 사용하는 함수 (올바른 게임 규칙 + Pokemon Communication 연쇄 로직)
         
@@ -291,11 +291,18 @@ class SimulationEngine:
                         print(f"  {card_name} 사용 시도...")
                     
                     # Iono의 경우 사용 여부를 먼저 판단
-                    if card_name == "Iono" and target_cards:
-                        decision = CardEffects.should_use_iono(game_state, target_cards)
-                        if not decision["should_use"]:
-                            if verbose:
+                    if card_name == "Iono":
+                        should_use = False
+                        
+                        if target_groups:  # multi_or_multi인 경우
+                            should_use = self._should_use_iono_for_multi_or_multi(game_state, target_groups, verbose)
+                        elif target_cards:  # 기존 multi_card인 경우
+                            decision = CardEffects.should_use_iono(game_state, target_cards)
+                            should_use = decision["should_use"]
+                            if verbose and not should_use:
                                 print(f"  {card_name} 사용 안 함: {decision['reason']}")
+                        
+                        if not should_use:
                             continue
 
                     effect_result = CardEffects.use_card_effect(card_name, game_state)
@@ -354,6 +361,42 @@ class SimulationEngine:
             print(f"  ⚠️ 최대 반복 횟수({max_iterations})에 도달하여 강제 종료")
         
         return cards_used
+    
+    def _should_use_iono_for_multi_or_multi(self, game_state: GameState, target_groups: List[Dict], verbose: bool = False) -> bool:
+        """
+        multi_or_multi 상황에서 Iono 사용 여부를 판단하는 함수
+        
+        Args:
+            game_state: 현재 게임 상태
+            target_groups: 목표 그룹들 [{"name": str, "target_cards": List[str]}]
+            verbose: 상세 로그 출력 여부
+            
+        Returns:
+            bool: Iono 사용 여부
+        """
+        current_hand_names = [card.name for card in game_state.hand if card.name != "Iono"]
+        
+        # 1단계: 이미 목표 달성했는지 체크 (어떤 그룹이라도 완성되었으면 Iono 금지)
+        for group in target_groups:
+            if all(target_card in current_hand_names for target_card in group['target_cards']):
+                if verbose:
+                    print(f"  Iono 사용 안 함: {group['name']} 이미 완성됨")
+                return False
+        
+        # 2단계: 거의 완성된 그룹이 있는지 체크 (67% 이상 완성된 그룹이 있으면 Iono 위험)
+        for group in target_groups:
+            completed_cards = sum(1 for target_card in group['target_cards'] if target_card in current_hand_names)
+            completion_rate = completed_cards / len(group['target_cards'])
+            
+            if completion_rate >= 0.67:  # 2/3 이상 완성
+                if verbose:
+                    print(f"  Iono 사용 안 함: {group['name']} {completion_rate*100:.0f}% 완성 (위험)")
+                return False
+        
+        # 3단계: 모든 그룹이 저조한 경우만 Iono 사용
+        if verbose:
+            print(f"  Iono 사용 함: 모든 그룹 진척도 낮음")
+        return True
 
 # ==================== 메인 실행 함수 ====================
 

@@ -103,9 +103,7 @@ def test_composite_calculations():
         )
         print(f"전체 결과: {result3['probability_percent']:.2f}%")
         print(f"성공: {result3['success_count']}/{result3['total_valid_games']}회")
-        print("그룹별 성공률:")
-        for group_name, prob in result3['group_probabilities'].items():
-            print(f"  {group_name}: {prob:.2f}%")
+        print("(파이리 라인 OR 꼬부기 라인 중 하나라도 완성된 확률)")
     except Exception as e:
         print(f"❌ 오류: {e}")
     
